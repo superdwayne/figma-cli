@@ -1,8 +1,12 @@
-"""Bridge commands — start relay server + send design commands to Figma plugin."""
+"""Bridge commands — single-command design creation in Figma via plugin bridge.
+
+Every command auto-starts the relay server if needed — no second terminal required.
+"""
 import json
 import time
 
 import click
+import requests as req
 
 from cli_anything_figma.bridge import start_bridge, stop_bridge, send_command
 from cli_anything_figma.formatters import (
@@ -10,13 +14,35 @@ from cli_anything_figma.formatters import (
 )
 
 
+def _ensure_bridge(port: int = 9480):
+    """Auto-start the relay server if it's not already running."""
+    try:
+        req.get(f"http://127.0.0.1:{port}/health", timeout=1)
+    except Exception:
+        start_bridge(port)
+        time.sleep(0.2)
+
+
+def _send(cmd_type: str, params: dict, port: int, use_json: bool, success_msg: str):
+    """Ensure bridge is up, send command, handle output."""
+    _ensure_bridge(port)
+    result = send_command(cmd_type, params, port=port)
+    if use_json:
+        output_json(result)
+    elif result.get("error"):
+        output_error(result["error"])
+    else:
+        output_success(success_msg)
+    return result
+
+
 @click.group("bridge")
 @click.pass_context
 def bridge_group(ctx):
-    """Figma Plugin Bridge — create designs directly in Figma via a local relay.
+    """Figma Plugin Bridge — create designs directly in Figma.
 
-    Start the bridge server, install the companion Figma plugin,
-    then use bridge commands to create frames, text, shapes, and more.
+    The relay server auto-starts when you run any command.
+    Just have the companion Figma plugin open and connected.
     """
     ctx.ensure_object(dict)
 
@@ -25,19 +51,17 @@ def bridge_group(ctx):
 @click.option("--port", "-p", default=9480, type=int, help="Relay server port (default: 9480).")
 @click.pass_context
 def bridge_start(ctx, port):
-    """Start the bridge relay server."""
+    """Start the bridge relay server (keeps running until Ctrl+C)."""
     use_json = ctx.obj.get("json", False)
 
     try:
-        server = start_bridge(port)
+        start_bridge(port)
         if use_json:
             output_json({"status": "running", "port": port, "url": f"http://127.0.0.1:{port}"})
         else:
             output_success(f"Bridge relay running on http://127.0.0.1:{port}")
-            output_info("Now open the Figma plugin and connect it to this bridge.")
-            output_info("Press Ctrl+C to stop the server.")
+            output_info("Open the Figma plugin → click Connect. Press Ctrl+C to stop.")
 
-        # Keep running until interrupted
         try:
             while True:
                 time.sleep(1)
@@ -55,10 +79,8 @@ def bridge_start(ctx, port):
 def bridge_status(ctx, port):
     """Check if the bridge relay is running."""
     use_json = ctx.obj.get("json", False)
-
     try:
-        import requests
-        resp = requests.get(f"http://127.0.0.1:{port}/health", timeout=3)
+        resp = req.get(f"http://127.0.0.1:{port}/health", timeout=3)
         data = resp.json()
         if use_json:
             output_json(data)
@@ -81,21 +103,12 @@ def bridge_status(ctx, port):
 @click.option("--port", "-p", default=9480, type=int)
 @click.pass_context
 def bridge_create_frame(ctx, name, width, height, x, y, fill, port):
-    """Create a frame in Figma (via plugin bridge)."""
-    use_json = ctx.obj.get("json", False)
-
+    """Create a frame in Figma (auto-starts bridge)."""
     params = {"name": name, "width": width, "height": height, "x": x, "y": y}
     if fill:
         params["fill"] = fill
-
-    result = send_command("CREATE_FRAME", params, port=port)
-
-    if use_json:
-        output_json(result)
-    elif result.get("error"):
-        output_error(result["error"])
-    else:
-        output_success(f"Created frame '{name}' ({width}x{height}) in Figma")
+    _send("CREATE_FRAME", params, port, ctx.obj.get("json", False),
+          f"Created frame '{name}' ({width}x{height}) in Figma")
 
 
 @bridge_group.command("create-text")
@@ -109,24 +122,15 @@ def bridge_create_frame(ctx, name, width, height, x, y, fill, port):
 @click.option("--port", "-p", default=9480, type=int)
 @click.pass_context
 def bridge_create_text(ctx, content, x, y, font_size, font_family, fill, parent, port):
-    """Create a text node in Figma (via plugin bridge)."""
-    use_json = ctx.obj.get("json", False)
-
+    """Create a text node in Figma (auto-starts bridge)."""
     params = {
         "content": content, "x": x, "y": y,
         "fontSize": font_size, "fontFamily": font_family, "fill": fill,
     }
     if parent:
         params["parent"] = parent
-
-    result = send_command("CREATE_TEXT", params, port=port)
-
-    if use_json:
-        output_json(result)
-    elif result.get("error"):
-        output_error(result["error"])
-    else:
-        output_success(f"Created text '{content[:40]}' in Figma")
+    _send("CREATE_TEXT", params, port, ctx.obj.get("json", False),
+          f"Created text '{content[:40]}' in Figma")
 
 
 @bridge_group.command("create-rect")
@@ -141,9 +145,7 @@ def bridge_create_text(ctx, content, x, y, font_size, font_family, fill, parent,
 @click.option("--port", "-p", default=9480, type=int)
 @click.pass_context
 def bridge_create_rect(ctx, x, y, width, height, fill, corner_radius, name, parent, port):
-    """Create a rectangle in Figma (via plugin bridge)."""
-    use_json = ctx.obj.get("json", False)
-
+    """Create a rectangle in Figma (auto-starts bridge)."""
     params = {
         "x": x, "y": y, "width": width, "height": height,
         "fill": fill, "cornerRadius": corner_radius,
@@ -152,15 +154,8 @@ def bridge_create_rect(ctx, x, y, width, height, fill, corner_radius, name, pare
         params["name"] = name
     if parent:
         params["parent"] = parent
-
-    result = send_command("CREATE_RECT", params, port=port)
-
-    if use_json:
-        output_json(result)
-    elif result.get("error"):
-        output_error(result["error"])
-    else:
-        output_success(f"Created rectangle '{name or 'rect'}' ({width}x{height}) in Figma")
+    _send("CREATE_RECT", params, port, ctx.obj.get("json", False),
+          f"Created rectangle '{name or 'rect'}' ({width}x{height}) in Figma")
 
 
 @bridge_group.command("create-ellipse")
@@ -174,23 +169,14 @@ def bridge_create_rect(ctx, x, y, width, height, fill, corner_radius, name, pare
 @click.option("--port", "-p", default=9480, type=int)
 @click.pass_context
 def bridge_create_ellipse(ctx, x, y, width, height, fill, name, parent, port):
-    """Create an ellipse in Figma (via plugin bridge)."""
-    use_json = ctx.obj.get("json", False)
-
+    """Create an ellipse in Figma (auto-starts bridge)."""
     params = {"x": x, "y": y, "width": width, "height": height, "fill": fill}
     if name:
         params["name"] = name
     if parent:
         params["parent"] = parent
-
-    result = send_command("CREATE_ELLIPSE", params, port=port)
-
-    if use_json:
-        output_json(result)
-    elif result.get("error"):
-        output_error(result["error"])
-    else:
-        output_success(f"Created ellipse in Figma")
+    _send("CREATE_ELLIPSE", params, port, ctx.obj.get("json", False),
+          "Created ellipse in Figma")
 
 
 @bridge_group.command("create-component")
@@ -201,24 +187,15 @@ def bridge_create_ellipse(ctx, x, y, width, height, fill, name, parent, port):
 @click.option("--port", "-p", default=9480, type=int)
 @click.pass_context
 def bridge_create_component(ctx, comp_type, props, port):
-    """Create a pre-built component in Figma (via plugin bridge)."""
-    use_json = ctx.obj.get("json", False)
-
+    """Create a pre-built component in Figma (auto-starts bridge)."""
     try:
         params = json.loads(props)
     except json.JSONDecodeError:
         output_error("Invalid JSON in --props")
         raise SystemExit(1)
-
     params["componentType"] = comp_type
-    result = send_command("CREATE_COMPONENT", params, port=port)
-
-    if use_json:
-        output_json(result)
-    elif result.get("error"):
-        output_error(result["error"])
-    else:
-        output_success(f"Created {comp_type} component in Figma")
+    _send("CREATE_COMPONENT", params, port, ctx.obj.get("json", False),
+          f"Created {comp_type} component in Figma")
 
 
 @bridge_group.command("batch")
@@ -227,11 +204,12 @@ def bridge_create_component(ctx, comp_type, props, port):
 @click.option("--port", "-p", default=9480, type=int)
 @click.pass_context
 def bridge_batch(ctx, spec, port):
-    """Execute batch commands from a JSON spec file.
+    """Execute batch commands from a JSON spec file (auto-starts bridge).
 
     Format: [{"type": "CREATE_FRAME", "params": {...}}, ...]
     """
     use_json = ctx.obj.get("json", False)
+    _ensure_bridge(port)
 
     with open(spec) as f:
         commands = json.load(f)
