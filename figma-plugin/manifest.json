@@ -1,0 +1,13 @@
+{
+  "name": "CLI-Anything Bridge",
+  "id": "cli-anything-figma-bridge",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "capabilities": [],
+  "enableProposedApi": false,
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["http://127.0.0.1:*", "http://localhost:*"]
+  }
+}

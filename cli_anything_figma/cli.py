@@ -19,6 +19,9 @@ from cli_anything_figma.commands.version import version_group
 from cli_anything_figma.commands.variable import variable_group
 from cli_anything_figma.commands.webhook import webhook_group
 from cli_anything_figma.commands.config_cmd import config_group
+from cli_anything_figma.commands.create import create_group
+from cli_anything_figma.commands.token import token_group
+from cli_anything_figma.commands.bridge_cmd import bridge_group
 
 
 class FigmaCLI(click.Group):
@@ -96,6 +99,9 @@ cli.add_command(version_group)
 cli.add_command(variable_group)
 cli.add_command(webhook_group)
 cli.add_command(config_group)
+cli.add_command(create_group)
+cli.add_command(token_group)
+cli.add_command(bridge_group)
 
 
 def main():

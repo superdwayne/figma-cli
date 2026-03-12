@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Inter, -apple-system, sans-serif;
+      background: #1e1e1e;
+      color: #e0e0e0;
+      padding: 16px;
+      font-size: 13px;
+    }
+    h1 { font-size: 16px; margin-bottom: 4px; color: #fff; }
+    .subtitle { color: #888; margin-bottom: 16px; font-size: 11px; }
+    .status {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px; border-radius: 8px;
+      margin-bottom: 12px; font-size: 12px;
+    }
+    .status.connected { background: #1a3a1a; color: #4ade80; }
+    .status.disconnected { background: #3a1a1a; color: #f87171; }
+    .status.waiting { background: #3a3a1a; color: #facc15; }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      display: inline-block;
+    }
+    .dot.green { background: #4ade80; }
+    .dot.red { background: #f87171; }
+    .dot.yellow { background: #facc15; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .config {
+      background: #2a2a2a; border-radius: 8px;
+      padding: 12px; margin-bottom: 12px;
+    }
+    .config label { display: block; color: #888; font-size: 11px; margin-bottom: 4px; }
+    .config input {
+      width: 100%; padding: 6px 8px; border-radius: 4px;
+      border: 1px solid #444; background: #1e1e1e; color: #fff;
+      font-size: 12px;
+    }
+    .config button {
+      margin-top: 8px; padding: 6px 16px; border-radius: 6px;
+      border: none; background: #3b82f6; color: white;
+      font-size: 12px; cursor: pointer; font-weight: 600;
+    }
+    .config button:hover { background: #2563eb; }
+    .config button.stop { background: #ef4444; }
+    .config button.stop:hover { background: #dc2626; }
+    .log {
+      background: #111; border-radius: 8px; padding: 8px;
+      max-height: 200px; overflow-y: auto; font-family: monospace;
+      font-size: 11px; line-height: 1.6;
+    }
+    .log-entry { color: #888; }
+    .log-entry.cmd { color: #60a5fa; }
+    .log-entry.ok { color: #4ade80; }
+    .log-entry.err { color: #f87171; }
+    .stats { display: flex; gap: 16px; margin-bottom: 12px; }
+    .stat { text-align: center; }
+    .stat-val { font-size: 24px; font-weight: 700; color: #fff; }
+    .stat-label { font-size: 10px; color: #888; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+  <h1>CLI-Anything Bridge</h1>
+  <p class="subtitle">Connects your terminal to this Figma file</p>
+
+  <div id="statusBar" class="status disconnected">
+    <span id="dot" class="dot red"></span>
+    <span id="statusText">Disconnected</span>
+  </div>
+
+  <div class="config">
+    <label>Bridge Server URL</label>
+    <input id="serverUrl" type="text" value="http://127.0.0.1:9480" />
+    <br/>
+    <button id="connectBtn" onclick="toggleConnection()">Connect</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div id="cmdCount" class="stat-val">0</div>
+      <div class="stat-label">Commands</div>
+    </div>
+    <div class="stat">
+      <div id="okCount" class="stat-val">0</div>
+      <div class="stat-label">Success</div>
+    </div>
+    <div class="stat">
+      <div id="errCount" class="stat-val">0</div>
+      <div class="stat-label">Errors</div>
+    </div>
+  </div>
+
+  <div id="log" class="log">
+    <div class="log-entry">Ready. Click Connect to start.</div>
+  </div>
+
+  <script>
+    let polling = false;
+    let pollTimer = null;
+    let cmdCount = 0, okCount = 0, errCount = 0;
+
+    function log(msg, cls = '') {
+      const el = document.getElementById('log');
+      const time = new Date().toLocaleTimeString();
+      el.innerHTML += `<div class="log-entry ${cls}">[${time}] ${msg}</div>`;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function setStatus(state, text) {
+      const bar = document.getElementById('statusBar');
+      const dot = document.getElementById('dot');
+      const txt = document.getElementById('statusText');
+      bar.className = `status ${state}`;
+      dot.className = `dot ${state === 'connected' ? 'green' : state === 'waiting' ? 'yellow' : 'red'}`;
+      txt.textContent = text;
+    }
+
+    function updateStats() {
+      document.getElementById('cmdCount').textContent = cmdCount;
+      document.getElementById('okCount').textContent = okCount;
+      document.getElementById('errCount').textContent = errCount;
+    }
+
+    function toggleConnection() {
+      if (polling) {
+        stopPolling();
+      } else {
+        startPolling();
+      }
+    }
+
+    function startPolling() {
+      const url = document.getElementById('serverUrl').value;
+      polling = true;
+      document.getElementById('connectBtn').textContent = 'Disconnect';
+      document.getElementById('connectBtn').className = 'stop';
+      setStatus('waiting', 'Connecting...');
+      log('Connecting to ' + url + '...', 'cmd');
+      poll();
+    }
+
+    function stopPolling() {
+      polling = false;
+      if (pollTimer) clearTimeout(pollTimer);
+      document.getElementById('connectBtn').textContent = 'Connect';
+      document.getElementById('connectBtn').className = '';
+      setStatus('disconnected', 'Disconnected');
+      log('Disconnected.');
+    }
+
+    async function poll() {
+      if (!polling) return;
+      const url = document.getElementById('serverUrl').value;
+
+      try {
+        const resp = await fetch(url + '/poll');
+        const cmd = await resp.json();
+
+        if (cmd.type && cmd.type !== 'noop') {
+          setStatus('connected', 'Connected — Processing...');
+          cmdCount++;
+          updateStats();
+          log(`← ${cmd.type}: ${JSON.stringify(cmd.params || {}).substring(0, 80)}`, 'cmd');
+
+          // Send command to plugin code
+          parent.postMessage({ pluginMessage: { type: 'COMMAND', payload: cmd } }, '*');
+        } else {
+          setStatus('connected', 'Connected — Listening');
+        }
+      } catch (err) {
+        setStatus('disconnected', 'Connection failed');
+        log('Connection error: ' + err.message, 'err');
+      }
+
+      pollTimer = setTimeout(poll, polling ? 500 : 5000);
+    }
+
+    // Receive results from plugin code and relay to server
+    window.onmessage = async (event) => {
+      const msg = event.data.pluginMessage;
+      if (!msg || msg.type !== 'RESULT') return;
+
+      const url = document.getElementById('serverUrl').value;
+      const result = msg.payload;
+
+      try {
+        await fetch(url + '/result', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(result),
+        });
+
+        if (result.status === 'ok') {
+          okCount++;
+          log(`→ OK: ${result.nodeId || 'done'}`, 'ok');
+        } else {
+          errCount++;
+          log(`→ ERROR: ${result.error}`, 'err');
+        }
+      } catch (err) {
+        errCount++;
+        log('Failed to send result: ' + err.message, 'err');
+      }
+      updateStats();
+    };
+  </script>
+</body>
+</html>

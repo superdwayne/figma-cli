@@ -1,0 +1,84 @@
+{
+  "width": 1440,
+  "height": 1800,
+  "bg": "#EDEDF0",
+  "elements": [
+    {
+      "type": "navbar",
+      "brand": "bedouin's daughter",
+      "links": ["shop", "about", "world", "bag (3)"],
+      "bg": "#111111",
+      "text_color": "#FFFFFF",
+      "height": 56
+    },
+    {
+      "type": "hero",
+      "headline": "bedouin's daughter",
+      "subtext": "multilayered beauty for those who live between worlds",
+      "cta": "Shop Now",
+      "bg": "#EDEDF0",
+      "height": 520
+    },
+    {
+      "type": "text",
+      "content": "Featured Collections",
+      "x": 80,
+      "font_size": 32,
+      "font_weight": "700",
+      "fill": "#111111"
+    },
+    {
+      "type": "grid",
+      "x": 80,
+      "columns": 3,
+      "gap": 32,
+      "card_width": 400,
+      "card_height": 280,
+      "items": [
+        { "title": "Desert Rose", "body": "Inspired by the shifting sands", "bg": "#FFF8F0", "border": "#E8D5C0" },
+        { "title": "Midnight Oasis", "body": "Dark tones meet golden light", "bg": "#1A1A2E", "border": "#2A2A4E" },
+        { "title": "Silk Route", "body": "Textures from the ancient trade paths", "bg": "#F5F0E8", "border": "#D5CFC0" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Our Philosophy",
+      "x": 80,
+      "font_size": 32,
+      "font_weight": "700",
+      "fill": "#111111"
+    },
+    {
+      "type": "text",
+      "content": "We create beauty products that honor the traditions of the desert while embracing modern science.",
+      "x": 80,
+      "font_size": 18,
+      "font_weight": "400",
+      "fill": "#666666"
+    },
+    {
+      "type": "grid",
+      "x": 80,
+      "columns": 4,
+      "gap": 24,
+      "card_width": 300,
+      "card_height": 160,
+      "items": [
+        { "title": "Natural", "body": "100% organic ingredients" },
+        { "title": "Sustainable", "body": "Eco-friendly packaging" },
+        { "title": "Cruelty-Free", "body": "Never tested on animals" },
+        { "title": "Handcrafted", "body": "Made with care in small batches" }
+      ]
+    },
+    {
+      "type": "button",
+      "label": "Explore All Products",
+      "x": 600,
+      "width": 240,
+      "height": 56,
+      "bg": "#111111",
+      "text_color": "#FFFFFF",
+      "corner_radius": 28
+    }
+  ]
+}
