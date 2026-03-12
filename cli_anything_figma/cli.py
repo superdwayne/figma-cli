@@ -22,6 +22,7 @@ from cli_anything_figma.commands.config_cmd import config_group
 from cli_anything_figma.commands.create import create_group
 from cli_anything_figma.commands.token import token_group
 from cli_anything_figma.commands.bridge_cmd import bridge_group
+from cli_anything_figma.commands.codegen_cmd import codegen_group
 
 
 class FigmaCLI(click.Group):
@@ -102,6 +103,7 @@ cli.add_command(config_group)
 cli.add_command(create_group)
 cli.add_command(token_group)
 cli.add_command(bridge_group)
+cli.add_command(codegen_group)
 
 
 def main():
