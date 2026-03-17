@@ -30,7 +30,11 @@ class FigmaCLI(click.Group):
 
     def invoke(self, ctx):
         if not ctx.protected_args and not ctx.invoked_subcommand:
-            # No subcommand → launch REPL
+            # No subcommand → launch REPL (only if stdin is a terminal)
+            if not sys.stdin.isatty():
+                click.echo("cli-anything-figma: interactive REPL requires a terminal.")
+                click.echo("Run 'figma-cli --help' to see available commands.")
+                raise SystemExit(1)
             from cli_anything_figma.repl_skin import FigmaREPL
             repl = FigmaREPL(self, ctx)
             repl.run()
